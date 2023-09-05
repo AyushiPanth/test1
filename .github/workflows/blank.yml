@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate HTML view of Git diff
         run: |
-          nbdime web --no-diff -o diff.html HEAD^ HEAD
+          nbdiff-web HEAD^ HEAD -o diff.html
         shell: bash
 
       - name: Upload HTML view as an artifact
