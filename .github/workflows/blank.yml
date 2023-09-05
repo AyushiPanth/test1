@@ -1,4 +1,4 @@
-name: Diff Jupyter Notebooks and Deploy GitHub Pages Site
+name: Diff Jupyter Notebooks and Create GitHub Pages Site
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ${{ github.workspace }} # Set the working directory for the entire job
+        working-directory: ${{github.workspace}} # Set the working directory for the entire job
     
     steps:
       - name: Set up Node.js
@@ -25,7 +25,7 @@ jobs:
       - name: Install nbdime
         run: pip install nbdime
 
-      - name: Diff notebooks
+      - name: Debug - List Changed Files
         run: |
           git config --global user.email "lit2019073@iiitl.ac.in"
           git config --global user.name "Ayushi Panth"
@@ -34,29 +34,34 @@ jobs:
       
           # Get the changed files in the pull request.
           changed_files=$(git diff --name-only $head_commit HEAD --)
+          echo "Changed Files: $changed_files" # Debug statement
+
+          # Check if there are any Jupyter notebooks in the changed files
+          notebooks=$(echo "$changed_files" | grep -E '\.ipynb$')
+          if [ -n "$notebooks" ]; then
+            echo "Found Jupyter Notebooks: $notebooks" # Debug statement
+          else
+            echo "No Jupyter Notebooks found in the changed files." # Debug statement
+          fi
+          
           git checkout -b gh-pages
           # Create a directory to store diff HTML files.
           mkdir -p diff_files
-      
-          # Diff the changed Jupyter notebooks and save HTML diffs.
-          for file in $changed_files; do
+          
+          echo "Diffing the following files: $notebooks" # Debug statement
+          for file in $notebooks; do
             nbdiff-web $file $file --output diff_files/$(basename $file).html
-
+          done
+          
           git add diff_files
           git commit -m "Add Jupyter Notebook diffs"
           git push origin gh-pages
-          done
-
-      - name: Deploy to GitHub Pages
-        run: |
-          # Set up Git user identity for the deployment
-          git config --global user.email "lit2019073@iiitl.ac.in"
-          git config --global user.name "Ayushi Panth"
           
-          # Deploy the contents of the diff_files directory to the gh-pages branch
-          git subtree push --prefix diff_files origin gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Debug - List the contents of the diff_files directory
+          ls -l diff_files
+          
+          # Debug - Display the repository's remote URL
+          git remote -v
 
       - name: Set GitHub Pages URL
         id: gh-pages-url
