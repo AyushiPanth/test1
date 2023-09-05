@@ -5,85 +5,30 @@ on:
     types: [opened]
 
 jobs:
-  diff:
+  generate-diff-html:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{github.workspace}} # Set the working directory for the entire job
-    
+
     steps:
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: 16
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - uses: actions/checkout@v2
-
-      - name: Install nbconvert
-        run: pip install nbconvert
-
-      - name: Install nbdime
-        run: pip install nbdime
-
-      - name: Debug - List Changed Files
+      - name: Install nbdime and ipython_genutils
         run: |
-          git config --global user.email "lit2019073@iiitl.ac.in"
-          git config --global user.name "Ayushi Panth"
-          # Get the hash of the head commit of the pull request.
-          head_commit=$(git rev-parse HEAD)
-      
-          # Get the changed files in the pull request.
-          changed_files=$(git diff --name-only $head_commit HEAD --)
-          echo "Changed Files: $changed_files" # Debug statement
-
-          # Check if there are any Jupyter notebooks in the changed files
-          notebooks=$(echo "$changed_files" | grep -E '\.ipynb$')
-          if [ -n "$notebooks" ]; then
-            echo "Found Jupyter Notebooks: $notebooks" # Debug statement
-          else
-            echo "No Jupyter Notebooks found in the changed files." # Debug statement
-          fi
-          
-          git checkout -b gh-pages
-          # Create a directory to store diff HTML files.
-          mkdir -p diff_files
-          
-          echo "Diffing the following files: $notebooks" # Debug statement
-          for file in $notebooks; do
-            nbdiff-web $file $file --output diff_files/$(basename $file).html
-          done
-          
-          git add diff_files
-          git commit -m "Add Jupyter Notebook diffs"
-          git push origin gh-pages
-          
-          # Debug - List the contents of the diff_files directory
-          ls -l diff_files
-          
-          # Debug - Display the repository's remote URL
-          git remote -v
-
-      - name: Set GitHub Pages URL
-        id: gh-pages-url
-        run: |
-          # Get the repository URL using the GitHub API
-          repo_url=$(gh repo view --json url -q .url)
-      
-          # Remove the quotes from the JSON response
-          repo_url=${repo_url//\"/}
-      
-          # Construct the URL for the diff_files directory
-          diff_url="${repo_url}/blob/gh-pages/diff_files"
-      
-          echo "::set-output name=diff_url::$diff_url"
+          pip install nbdime ipython_genutils
         shell: bash
-      
-      - name: Create Comment
+
+      - name: Configure nbdime for Git
         run: |
-          # Get the dynamically generated diff URL from the previous step's output
-          diff_url="${{ steps.gh-pages-url.outputs.diff_url }}"
-      
-          # Create a comment with the dynamically generated diff URL
-          gh issue comment ${{ github.event.pull_request.number }} -b "The diff of the Jupyter notebooks can be found here: $diff_url"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          nbdime config-git --enable --global
+        shell: bash
+
+      - name: Generate HTML view of Git diff
+        run: |
+          nbdime web --no-diff -o diff.html HEAD^ HEAD
+        shell: bash
+
+      - name: Upload HTML view as an artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: nbdime-diff-html
+          path: diff.html
