@@ -1,4 +1,4 @@
-name: Diff Jupyter Notebooks and Create GitHub Pages Site
+name: Diff Jupyter Notebooks and Deploy GitHub Pages Site
 
 on:
   pull_request:
@@ -9,10 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ${{github.workspace}} # Set the working directory for the entire job
+        working-directory: ${{ github.workspace }} # Set the working directory for the entire job
     
     steps:
-
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
@@ -36,7 +35,7 @@ jobs:
           # Get the changed files in the pull request.
           changed_files=$(git diff --name-only $head_commit HEAD --)
           git checkout -b gh-pages
-          # Create a directory to   store diff HTML files.
+          # Create a directory to store diff HTML files.
           mkdir -p diff_files
       
           # Diff the changed Jupyter notebooks and save HTML diffs.
@@ -48,10 +47,19 @@ jobs:
           git push origin gh-pages
           done
 
-      - name: Set GitHub Pages URL
-        id: gh-pages-url
+      - name: Deploy to GitHub Pages
+        run: |
+          # Set up Git user identity for the deployment
+          git config --global user.email "lit2019073@iiitl.ac.in"
+          git config --global user.name "Ayushi Panth"
+          
+          # Deploy the contents of the diff_files directory to the gh-pages branch
+          git subtree push --prefix diff_files origin gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Set GitHub Pages URL
+        id: gh-pages-url
         run: |
           # Get the repository URL using the GitHub API
           repo_url=$(gh repo view --json url -q .url)
